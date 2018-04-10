@@ -17,11 +17,7 @@ func FromContext(ctx context.Context) *Sentry {
 	return ctx.Value(keySentry).(*Sentry)
 }
 
-func WithContext(ctx context.Context, sentry *Sentry) context.Context {
-	return context.WithValue(ctx, keySentry, sentry)
-}
-
-func NewContext(ctx context.Context) context.Context {
+func WithContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, keySentry, new(Sentry))
 }
 
