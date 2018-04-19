@@ -73,9 +73,7 @@ func (client *Client) report(ctx context.Context, appErr error, r *http.Request)
 		client.SetRelease(os.Getenv("VERSION"))
 
 		info := FromContext(ctx)
-		packet := raven.NewPacket(appErr.Error(), []raven.Interface{
-			raven.NewHttp(r),
-			&raven.User{IP: r.RemoteAddr},
+		interfaces := []raven.Interface{
 			&Exception{
 				Stacktrace: stacktrace,
 				Module:     "backend",
@@ -88,7 +86,11 @@ func (client *Client) report(ctx context.Context, appErr error, r *http.Request)
 			&Extra{
 				InstanceID: os.Getenv("POD_NAME"),
 			},
-		}...)
+		}
+		if r != nil {
+			interfaces = append(interfaces, raven.NewHttp(r), &raven.User{IP: r.RemoteAddr})
+		}
+		packet := raven.NewPacket(appErr.Error(), interfaces...)
 		eventID, ch := client.Capture(packet, nil)
 		<-ch
 		event <- eventID
