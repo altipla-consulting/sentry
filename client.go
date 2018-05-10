@@ -83,9 +83,6 @@ func (client *Client) report(ctx context.Context, appErr error, r *http.Request)
 			&Breadcrumbs{
 				Values: info.breadcrumbs,
 			},
-			&Extra{
-				InstanceID: os.Getenv("POD_NAME"),
-			},
 		}
 		if r != nil {
 			interfaces = append(interfaces, raven.NewHttp(r), &raven.User{IP: r.RemoteAddr})
