@@ -3,28 +3,8 @@ package sentry
 import (
 	"time"
 
-	"github.com/getsentry/raven-go"
+	"golang.org/x/net/context"
 )
-
-type Extra struct {
-	RequestID  string `json:"Request ID"`
-	InstanceID string `json:"Instance ID"`
-}
-
-func (extra *Extra) Class() string {
-	return "extra"
-}
-
-type Exception struct {
-	Value      string            `json:"value"`
-	Module     string            `json:"module"`
-	Stacktrace *raven.Stacktrace `json:"stacktrace"`
-	Type       string            `json:"type"`
-}
-
-func (e *Exception) Class() string {
-	return "exception"
-}
 
 type Breadcrumbs struct {
 	Values []*Breadcrumb `json:"values,omitempty"`
@@ -52,3 +32,14 @@ const (
 	LevelInfo     = Level("info")
 	LevelDebug    = Level("debug")
 )
+
+func LogBreadcrumb(ctx context.Context, level Level, category, message string) {
+	info := FromContext(ctx)
+	info.breadcrumbs = append(info.breadcrumbs, &Breadcrumb{
+		Timestamp: time.Now(),
+		Type:      "default",
+		Message:   message,
+		Category:  category,
+		Level:     level,
+	})
+}

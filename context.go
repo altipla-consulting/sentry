@@ -2,7 +2,6 @@ package sentry
 
 import (
 	"context"
-	"time"
 )
 
 type key int
@@ -19,15 +18,4 @@ func FromContext(ctx context.Context) *Sentry {
 
 func WithContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, keySentry, new(Sentry))
-}
-
-func LogBreadcrumb(ctx context.Context, level Level, category, message string) {
-	info := FromContext(ctx)
-	info.breadcrumbs = append(info.breadcrumbs, &Breadcrumb{
-		Timestamp: time.Now(),
-		Type:      "default",
-		Message:   message,
-		Category:  category,
-		Level:     level,
-	})
 }

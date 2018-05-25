@@ -31,6 +31,26 @@ func (client *Client) ReportRequest(appErr error, r *http.Request) {
 	client.report(r.Context(), appErr, r)
 }
 
+type Extra struct {
+	RequestID  string `json:"Request ID"`
+	InstanceID string `json:"Instance ID"`
+}
+
+func (extra *Extra) Class() string {
+	return "extra"
+}
+
+type Exception struct {
+	Value      string            `json:"value"`
+	Module     string            `json:"module"`
+	Stacktrace *raven.Stacktrace `json:"stacktrace"`
+	Type       string            `json:"type"`
+}
+
+func (e *Exception) Class() string {
+	return "exception"
+}
+
 func (client *Client) report(ctx context.Context, appErr error, r *http.Request) {
 	event := make(chan string, 1)
 	go func() {
