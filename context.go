@@ -13,7 +13,12 @@ type Sentry struct {
 }
 
 func FromContext(ctx context.Context) *Sentry {
-	return ctx.Value(keySentry).(*Sentry)
+	value := ctx.Value(keySentry)
+	if value == nil {
+		return new(Sentry)
+	}
+
+	return value.(*Sentry)
 }
 
 func WithContext(ctx context.Context) context.Context {
