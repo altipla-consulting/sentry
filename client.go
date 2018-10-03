@@ -51,12 +51,16 @@ func (e *Exception) Class() string {
 	return "exception"
 }
 
+type StackTracer interface {
+	StackTrace() []string
+}
+
 func (client *Client) report(ctx context.Context, appErr error, r *http.Request) {
 	event := make(chan string, 1)
 	go func() {
-		jujuErr, ok := appErr.(*errors.Err)
+		jujuErr, ok := appErr.(StackTracer)
 		if !ok {
-			jujuErr = errors.Errorf("unknown error type: %s", appErr.Error()).(*errors.Err)
+			jujuErr = errors.Errorf("unknown error type: %s", appErr.Error()).(StackTracer)
 		}
 		stacktrace := new(raven.Stacktrace)
 		for _, entry := range jujuErr.StackTrace() {
