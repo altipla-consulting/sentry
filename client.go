@@ -2,7 +2,6 @@ package sentry
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -40,35 +39,35 @@ type jujuStacktracer interface {
 
 func (client *Client) report(ctx context.Context, appErr error, r *http.Request) {
 	go func() {
-		jujuErr, ok := appErr.(jujuStacktracer)
-		if !ok {
-			jujuErr = fmt.Errorf("unknown error type: %s", appErr.Error()).(jujuStacktracer)
-		}
 		stacktrace := new(raven.Stacktrace)
-		for _, entry := range jujuErr.StackTrace() {
-			parts := strings.Split(entry, ":")
-			if len(parts) > 2 {
-				n, err := strconv.ParseInt(parts[1], 10, 64)
-				if err == nil {
-					stacktrace.Frames = append(stacktrace.Frames, &raven.StacktraceFrame{
-						Filename:    parts[0],
-						Lineno:      int(n),
-						ContextLine: entry,
-					})
-					continue
+
+		jujuErr, ok := appErr.(jujuStacktracer)
+		if ok {
+			for _, entry := range jujuErr.StackTrace() {
+				parts := strings.Split(entry, ":")
+				if len(parts) > 2 {
+					n, err := strconv.ParseInt(parts[1], 10, 64)
+					if err == nil {
+						stacktrace.Frames = append(stacktrace.Frames, &raven.StacktraceFrame{
+							Filename:    parts[0],
+							Lineno:      int(n),
+							ContextLine: entry,
+						})
+						continue
+					}
 				}
+
+				// Fallback to avoid erroring out here if no location is found
+				stacktrace.Frames = append(stacktrace.Frames, &raven.StacktraceFrame{
+					Filename:    entry,
+					ContextLine: entry,
+				})
 			}
 
-			// Fallback to avoid erroring out here if no location is found
-			stacktrace.Frames = append(stacktrace.Frames, &raven.StacktraceFrame{
-				Filename:    entry,
-				ContextLine: entry,
-			})
-		}
-
-		// Invert frames to show them in the correct order in the Sentry UI
-		for i, j := 0, len(stacktrace.Frames)-1; i < j; i, j = i+1, j-1 {
-			stacktrace.Frames[i], stacktrace.Frames[j] = stacktrace.Frames[j], stacktrace.Frames[i]
+			// Invert frames to show them in the correct order in the Sentry UI
+			for i, j := 0, len(stacktrace.Frames)-1; i < j; i, j = i+1, j-1 {
+				stacktrace.Frames[i], stacktrace.Frames[j] = stacktrace.Frames[j], stacktrace.Frames[i]
+			}
 		}
 
 		client, err := raven.New(client.dsn)
