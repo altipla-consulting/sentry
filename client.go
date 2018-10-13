@@ -101,8 +101,8 @@ func (client *Client) report(ctx context.Context, appErr error, r *http.Request)
 		packet := raven.NewPacket(appErr.Error(), interfaces...)
 		if info != nil && info.rpcMethod != "" {
 			packet.AddTags(map[string]string{
-				"rpc-service": info.rpcService,
-				"rpc-method":  info.rpcMethod,
+				"rpc_service": info.rpcService,
+				"rpc_method":  info.rpcMethod,
 			})
 		}
 
