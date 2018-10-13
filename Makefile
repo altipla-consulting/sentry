@@ -8,11 +8,7 @@ gofmt:
 deps:
 	go get -u github.com/mgechev/revive
 
-	go get -u github.com/getsentry/raven-go
-	go get -u github.com/juju/errors
-	go get -u github.com/sirupsen/logrus
-	go get -u golang.org/x/net/context
-
 test:
 	revive -formatter friendly
 	go install .
+	go test ./...

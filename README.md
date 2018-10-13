@@ -13,13 +13,6 @@ Sentry client with additional functionality and helpers to complement the offici
 go get github.com/altipla-consulting/sentry
 ```
 
-This library has the following dependencies:
-
-- [github.com/getsentry/raven-go](github.com/getsentry/raven-go)
-- [github.com/juju/errors](github.com/juju/errors)
-- [github.com/sirupsen/logrus](github.com/sirupsen/logrus)
-- [golang.org/x/net/context](golang.org/x/net/context)
-
 
 ### Contributing
 

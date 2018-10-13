@@ -2,65 +2,47 @@ package sentry
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/getsentry/raven-go"
-	"github.com/juju/errors"
 	log "github.com/sirupsen/logrus"
 )
 
+// Client wraps a Sentry connection.
 type Client struct {
 	dsn string
 }
 
+// NewClient opens a new connection to the Sentry report API.
 func NewClient(dsn string) *Client {
 	return &Client{
 		dsn: dsn,
 	}
 }
 
+// ReportInternal reports an error not linked to a HTTP request.
 func (client *Client) ReportInternal(ctx context.Context, appErr error) {
 	client.report(ctx, appErr, nil)
 }
 
+// ReportRequest reports an error linked to a HTTP request.
 func (client *Client) ReportRequest(appErr error, r *http.Request) {
 	client.report(r.Context(), appErr, r)
 }
 
-type Extra struct {
-	RequestID  string `json:"Request ID"`
-	InstanceID string `json:"Instance ID"`
-}
-
-func (extra *Extra) Class() string {
-	return "extra"
-}
-
-type Exception struct {
-	Value      string            `json:"value"`
-	Module     string            `json:"module"`
-	Stacktrace *raven.Stacktrace `json:"stacktrace"`
-	Type       string            `json:"type"`
-}
-
-func (e *Exception) Class() string {
-	return "exception"
-}
-
-type StackTracer interface {
+type jujuStacktracer interface {
 	StackTrace() []string
 }
 
 func (client *Client) report(ctx context.Context, appErr error, r *http.Request) {
-	event := make(chan string, 1)
 	go func() {
-		jujuErr, ok := appErr.(StackTracer)
+		jujuErr, ok := appErr.(jujuStacktracer)
 		if !ok {
-			jujuErr = errors.Errorf("unknown error type: %s", appErr.Error()).(StackTracer)
+			jujuErr = fmt.Errorf("unknown error type: %s", appErr.Error()).(jujuStacktracer)
 		}
 		stacktrace := new(raven.Stacktrace)
 		for _, entry := range jujuErr.StackTrace() {
@@ -96,32 +78,36 @@ func (client *Client) report(ctx context.Context, appErr error, r *http.Request)
 		}
 		client.SetRelease(os.Getenv("VERSION"))
 
-		info := FromContext(ctx)
 		interfaces := []raven.Interface{
-			&Exception{
+			&ravenException{
 				Stacktrace: stacktrace,
 				Module:     "backend",
 				Value:      appErr.Error(),
 				Type:       appErr.Error(),
 			},
-			&Breadcrumbs{
+		}
+
+		info := FromContext(ctx)
+		if info != nil {
+			interfaces = append(interfaces, &ravenBreadcrumbs{
 				Values: info.breadcrumbs,
-			},
+			})
 		}
+
 		if r != nil {
-			interfaces = append(interfaces, raven.NewHttp(r), &raven.User{IP: r.RemoteAddr})
+			interfaces = append(interfaces, raven.NewHttp(r))
 		}
+
 		packet := raven.NewPacket(appErr.Error(), interfaces...)
+		if info != nil && info.rpcMethod != "" {
+			packet.AddTags(map[string]string{
+				"rpc_service": info.rpcService,
+				"rpc_method":  info.rpcMethod,
+			})
+		}
+
 		eventID, ch := client.Capture(packet, nil)
 		<-ch
-		event <- eventID
-	}()
-
-	select {
-	case eventID := <-event:
 		log.WithField("eventID", eventID).Info("Error logged to sentry")
-
-	case <-time.After(5 * time.Second):
-		log.Error("Timeout trying to reach sentry")
-	}
+	}()
 }
