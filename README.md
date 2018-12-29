@@ -1,6 +1,8 @@
 
 # sentry
 
+> **DEPRECATED:** Use https://github.com/altipla-consulting/libs instead.
+
 [![GoDoc](https://godoc.org/github.com/altipla-consulting/sentry?status.svg)](https://godoc.org/github.com/altipla-consulting/sentry)
 [![Build Status](https://travis-ci.org/altipla-consulting/sentry.svg?branch=master)](https://travis-ci.org/altipla-consulting/sentry)
 
