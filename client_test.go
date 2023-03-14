@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/altipla-consulting/errors"
+
 	"github.com/altipla-consulting/sentry"
 )
 
