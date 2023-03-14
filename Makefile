@@ -1,14 +1,15 @@
 
-FILES = $(shell find . -type f -name '*.go' -not -path './vendor/*')
+FILES = $(shell find . -type f -name '*.go')
 
-gofmt:
-	@gofmt -w $(FILES)
-	@gofmt -r '&α{} -> new(α)' -w $(FILES)
-
-deps:
-	go get -u github.com/mgechev/revive
+lint:
+	linter ./...
+	go vet ./...
+	go install ./...
 
 test:
-	revive -formatter friendly
-	go install .
-	go test ./...
+	go test -race ./...
+
+gofmt:
+	@gofmt -s -w $(FILES)
+	@gofmt -r '&α{} -> new(α)' -w $(FILES)
+	@impsort . -p github.com/altipla-consulting/sentry

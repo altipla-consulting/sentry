@@ -4,109 +4,156 @@ import (
 	"context"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
+	"reflect"
+	"runtime/debug"
 
-	"github.com/getsentry/raven-go"
+	"github.com/altipla-consulting/errors"
+	"github.com/getsentry/sentry-go"
 	log "github.com/sirupsen/logrus"
+)
+
+const (
+	LevelFatal   = sentry.LevelFatal
+	LevelWarning = sentry.LevelWarning
+	LevelError   = sentry.LevelError
+	LevelInfo    = sentry.LevelInfo
+	LevelDebug   = sentry.LevelDebug
 )
 
 // Client wraps a Sentry connection.
 type Client struct {
-	dsn string
+	hub *sentry.Hub
 }
 
-// NewClient opens a new connection to the Sentry report API.
+// NewClient opens a new connection to the Sentry report API. If dsn is empty
+// it will return nil. A nil client can be used safely but it won't report anything.
 func NewClient(dsn string) *Client {
+	if dsn == "" {
+		return nil
+	}
+
+	client, err := sentry.NewClient(sentry.ClientOptions{
+		Dsn:     dsn,
+		Release: os.Getenv("VERSION"),
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	return &Client{
-		dsn: dsn,
+		hub: sentry.NewHub(client, sentry.NewScope()),
 	}
 }
 
-// ReportInternal reports an error not linked to a HTTP request.
-func (client *Client) ReportInternal(ctx context.Context, appErr error) {
-	client.report(ctx, appErr, nil)
+// Report reports an error to Sentry.
+func (client *Client) Report(ctx context.Context, appErr error) {
+	if client == nil {
+		return
+	}
+	client.sendReport(ctx, appErr, nil)
 }
 
 // ReportRequest reports an error linked to a HTTP request.
-func (client *Client) ReportRequest(appErr error, r *http.Request) {
-	client.report(r.Context(), appErr, r)
+func (client *Client) ReportRequest(r *http.Request, appErr error) {
+	if client == nil {
+		return
+	}
+	client.sendReport(r.Context(), appErr, r)
 }
 
-type jujuStacktracer interface {
-	StackTrace() []string
+// ReportPanics detects panics in the rest of the body of the function and
+// reports it if one occurs.
+func (client *Client) ReportPanics(ctx context.Context) {
+	if client == nil {
+		return
+	}
+	client.ReportPanic(ctx, recover())
 }
 
-func (client *Client) report(ctx context.Context, appErr error, r *http.Request) {
+// ReportPanic sends a panic correctly formated to the server if the argument
+// is not nil.
+func (client *Client) ReportPanic(ctx context.Context, panicErr interface{}) {
+	if client == nil || panicErr == nil {
+		return
+	}
+	rec := errors.Recover(panicErr)
+
+	// Ignore aborted handler errors
+	if errors.Is(rec, http.ErrAbortHandler) {
+		panic(panicErr)
+	}
+
+	log.WithField("error", rec.Error()).Error("Panic recovered")
+	client.sendReportPanic(ctx, rec, string(debug.Stack()), nil)
+}
+
+// ReportPanicsRequest detects pancis in the body of the function and reports them
+// linked to a HTTP request.
+func (client *Client) ReportPanicsRequest(r *http.Request) {
+	if client == nil {
+		return
+	}
+	if rec := errors.Recover(recover()); rec != nil {
+		log.WithField("error", rec.Error()).Error("Panic recovered")
+		client.sendReportPanic(r.Context(), rec, string(debug.Stack()), r)
+	}
+}
+
+func (client *Client) sendReport(ctx context.Context, appErr error, r *http.Request) {
 	go func() {
-		stacktrace := new(raven.Stacktrace)
+		event := sentry.NewEvent()
+		event.Level = sentry.LevelError
+		event.Message = appErr.Error()
 
-		jujuErr, ok := appErr.(jujuStacktracer)
-		if ok {
-			for _, entry := range jujuErr.StackTrace() {
-				parts := strings.Split(entry, ":")
-				if len(parts) > 2 {
-					n, err := strconv.ParseInt(parts[1], 10, 64)
-					if err == nil {
-						stacktrace.Frames = append(stacktrace.Frames, &raven.StacktraceFrame{
-							Filename:    parts[0],
-							Lineno:      int(n),
-							ContextLine: entry,
-						})
-						continue
-					}
-				}
-
-				// Fallback to avoid erroring out here if no location is found
-				stacktrace.Frames = append(stacktrace.Frames, &raven.StacktraceFrame{
-					Filename:    entry,
-					ContextLine: entry,
-				})
-			}
-
-			// Invert frames to show them in the correct order in the Sentry UI
-			for i, j := 0, len(stacktrace.Frames)-1; i < j; i, j = i+1, j-1 {
-				stacktrace.Frames[i], stacktrace.Frames[j] = stacktrace.Frames[j], stacktrace.Frames[i]
-			}
+		var tp = reflect.TypeOf(errors.Cause(appErr)).String()
+		if tp == "*errors.errorString" {
+			tp = appErr.Error()
 		}
-
-		client, err := raven.New(client.dsn)
-		if err != nil {
-			log.WithField("error", err).Error("Cannot create client")
-			return
-		}
-		client.SetRelease(os.Getenv("VERSION"))
-
-		interfaces := []raven.Interface{
-			&ravenException{
-				Stacktrace: stacktrace,
-				Module:     "backend",
+		event.Exception = []sentry.Exception{
+			{
+				Type:       tp,
 				Value:      appErr.Error(),
-				Type:       appErr.Error(),
+				Stacktrace: sentry.ExtractStacktrace(appErr),
 			},
 		}
 
 		info := FromContext(ctx)
 		if info != nil {
-			interfaces = append(interfaces, &ravenBreadcrumbs{
-				Values: info.breadcrumbs,
-			})
+			event.Breadcrumbs = info.breadcrumbs
 		}
 
 		if r != nil {
-			interfaces = append(interfaces, raven.NewHttp(r))
+			event.Request = sentry.NewRequest(r)
 		}
 
-		packet := raven.NewPacket(appErr.Error(), interfaces...)
-		if info != nil && info.rpcMethod != "" {
-			packet.AddTags(map[string]string{
-				"rpc_service": info.rpcService,
-				"rpc_method":  info.rpcMethod,
-			})
+		eventID := client.hub.CaptureEvent(event)
+		log.WithField("eventID", *eventID).Info("Error sent to Sentry")
+	}()
+}
+
+func (client *Client) sendReportPanic(ctx context.Context, appErr error, message string, r *http.Request) {
+	go func() {
+		event := sentry.NewEvent()
+		event.Level = sentry.LevelFatal
+		event.Message = message
+		event.Exception = []sentry.Exception{
+			{
+				Type:       appErr.Error(),
+				Value:      appErr.Error(),
+				Stacktrace: sentry.ExtractStacktrace(appErr),
+			},
 		}
 
-		eventID, ch := client.Capture(packet, nil)
-		<-ch
-		log.WithField("eventID", eventID).Info("Error logged to sentry")
+		info := FromContext(ctx)
+		if info != nil {
+			event.Breadcrumbs = info.breadcrumbs
+		}
+
+		if r != nil {
+			event.Request = sentry.NewRequest(r)
+		}
+
+		eventID := client.hub.CaptureEvent(event)
+		log.WithField("event-id", *eventID).Info("Error sent to Sentry")
 	}()
 }
