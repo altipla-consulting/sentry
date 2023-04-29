@@ -2,6 +2,8 @@ github.com/altipla-consulting/errors v1.2.0 h1:WksigpnaMlBc3PjvMSkvb4k3cbosCdC2/
 github.com/altipla-consulting/errors v1.2.0/go.mod h1:wqLbQEvpmFHArZcU8AvRKZuzeF3LL2gw+dhk3+ztikQ=
 github.com/altipla-consulting/errors v1.2.1 h1:oTG8XsGL2kW1GRHxGByvmMGLzY/+xAWw9y0NNdEOFsM=
 github.com/altipla-consulting/errors v1.2.1/go.mod h1:wqLbQEvpmFHArZcU8AvRKZuzeF3LL2gw+dhk3+ztikQ=
+github.com/altipla-consulting/errors v1.2.3 h1:LVNwe9V9Js6DBGrBQiNpsIJy35ALJ6vzUcYZRGstvzk=
+github.com/altipla-consulting/errors v1.2.3/go.mod h1:wqLbQEvpmFHArZcU8AvRKZuzeF3LL2gw+dhk3+ztikQ=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
