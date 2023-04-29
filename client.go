@@ -105,13 +105,17 @@ func (client *Client) sendReport(ctx context.Context, appErr error, r *http.Requ
 		event.Level = sentry.LevelError
 		event.Message = appErr.Error()
 
-		var tp = reflect.TypeOf(errors.Cause(appErr)).String()
-		if tp == "*errors.errorString" {
-			tp = appErr.Error()
+		cause := appErr
+		for {
+			child := errors.Unwrap(cause)
+			if child == nil {
+				break
+			}
+			cause = child
 		}
 		event.Exception = []sentry.Exception{
 			{
-				Type:       tp,
+				Type:       reflect.TypeOf(cause).String(),
 				Value:      appErr.Error(),
 				Stacktrace: sentry.ExtractStacktrace(appErr),
 			},

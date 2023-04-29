@@ -68,3 +68,29 @@ func TestIgnoreAbortError(t *testing.T) {
 
 	panic(http.ErrAbortHandler)
 }
+
+func TestReportStackTrace(t *testing.T) {
+	if os.Getenv("SENTRY_DSN") == "" {
+		t.Skip("Skipping sentry real tests without SENTRY_DSN=foo env variable")
+	}
+	defer time.Sleep(3 * time.Second)
+
+	client := sentry.NewClient(os.Getenv("SENTRY_DSN"))
+
+	client.Report(context.Background(), errors.Trace(wrapper1()))
+}
+
+func wrapper1() error {
+	return errors.Trace(wrapper2())
+}
+
+func wrapper2() error {
+	if err := wrapper3(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func wrapper3() error {
+	return errors.Errorf("new formatted error")
+}
