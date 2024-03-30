@@ -1,9 +1,11 @@
 module github.com/altipla-consulting/sentry
 
-go 1.19
+go 1.21
+
+toolchain go1.21.4
 
 require (
-	github.com/altipla-consulting/errors v1.2.5
+	github.com/altipla-consulting/errors v1.4.0
 	github.com/getsentry/sentry-go v0.19.0
 	github.com/sirupsen/logrus v1.9.0
 )
