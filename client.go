@@ -2,6 +2,7 @@ package sentry
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"os"
 	"reflect"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/altipla-consulting/errors"
 	"github.com/getsentry/sentry-go"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -83,7 +83,6 @@ func (client *Client) ReportPanic(ctx context.Context, panicErr interface{}) {
 		panic(panicErr)
 	}
 
-	log.WithField("error", rec.Error()).Error("Panic recovered")
 	client.sendReportPanic(ctx, rec, string(debug.Stack()), nil)
 }
 
@@ -94,7 +93,6 @@ func (client *Client) ReportPanicsRequest(r *http.Request) {
 		return
 	}
 	if rec := errors.Recover(recover()); rec != nil { // revive:disable-line:defer
-		log.WithField("error", rec.Error()).Error("Panic recovered")
 		client.sendReportPanic(r.Context(), rec, string(debug.Stack()), r)
 	}
 }
@@ -131,7 +129,7 @@ func (client *Client) sendReport(ctx context.Context, appErr error, r *http.Requ
 		}
 
 		eventID := client.hub.CaptureEvent(event)
-		log.WithField("eventID", *eventID).Info("Error sent to Sentry")
+		slog.Info("Error sent to Sentry", slog.String("event-id", string(*eventID)))
 	}()
 }
 
@@ -158,6 +156,6 @@ func (client *Client) sendReportPanic(ctx context.Context, appErr error, message
 		}
 
 		eventID := client.hub.CaptureEvent(event)
-		log.WithField("event-id", *eventID).Info("Error sent to Sentry")
+		slog.Info("Error sent to Sentry", slog.String("event-id", string(*eventID)))
 	}()
 }
