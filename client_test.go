@@ -2,12 +2,11 @@ package sentry_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"testing"
 	"time"
-
-	"github.com/altipla-consulting/errors"
 
 	"github.com/altipla-consulting/sentry"
 )
@@ -26,15 +25,15 @@ func TestReportError(t *testing.T) {
 }
 
 func foo(msg string) error {
-	return errors.Trace(bar(msg))
+	return fmt.Errorf("foo function: %w", bar(msg))
 }
 
 func bar(msg string) error {
-	return errors.Trace(baz(msg))
+	return fmt.Errorf("bar function: %w", baz(msg))
 }
 
 func baz(msg string) error {
-	return errors.Errorf(msg)
+	return fmt.Errorf("baz function: %s", msg)
 }
 
 type CustomErr struct {
@@ -77,20 +76,20 @@ func TestReportStackTrace(t *testing.T) {
 
 	client := sentry.NewClient(os.Getenv("SENTRY_DSN"))
 
-	client.Report(context.Background(), errors.Trace(wrapper1()))
+	client.Report(context.Background(), fmt.Errorf("wrapper1: %w", wrapper1()))
 }
 
 func wrapper1() error {
-	return errors.Trace(wrapper2())
+	return fmt.Errorf("wrapper1: %w", wrapper2())
 }
 
 func wrapper2() error {
 	if err := wrapper3(); err != nil {
-		return errors.Trace(err)
+		return fmt.Errorf("wrapper2: %w", err)
 	}
 	return nil
 }
 
 func wrapper3() error {
-	return errors.Errorf("new formatted error")
+	return fmt.Errorf("wrapper3: new formatted error")
 }

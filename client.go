@@ -2,13 +2,14 @@ package sentry
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"reflect"
 	"runtime/debug"
 
-	"github.com/altipla-consulting/errors"
 	"github.com/getsentry/sentry-go"
 )
 
@@ -76,14 +77,7 @@ func (client *Client) ReportPanic(ctx context.Context, panicErr interface{}) {
 	if client == nil || panicErr == nil {
 		return
 	}
-	rec := errors.Recover(panicErr)
-
-	// Ignore aborted handler errors
-	if errors.Is(rec, http.ErrAbortHandler) {
-		panic(panicErr)
-	}
-
-	client.sendReportPanic(ctx, rec, string(debug.Stack()), nil)
+	client.sendReportPanic(ctx, fmt.Errorf("panic: %v", panicErr), string(debug.Stack()), nil)
 }
 
 // ReportPanicsRequest detects pancis in the body of the function and reports them
@@ -92,8 +86,8 @@ func (client *Client) ReportPanicsRequest(r *http.Request) {
 	if client == nil {
 		return
 	}
-	if rec := errors.Recover(recover()); rec != nil { // revive:disable-line:defer
-		client.sendReportPanic(r.Context(), rec, string(debug.Stack()), r)
+	if rec := recover(); rec != nil { // revive:disable-line:defer
+		client.sendReportPanic(r.Context(), fmt.Errorf("panic: %v", rec), string(debug.Stack()), r)
 	}
 }
 
