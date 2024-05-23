@@ -15,6 +15,7 @@ var keySentry key = 1
 // an error is reported.
 type Sentry struct {
 	breadcrumbs []*sentry.Breadcrumb
+	tags        map[string]string
 }
 
 // FromContext returns the Sentry instance stored in the context. If no instance
@@ -36,7 +37,6 @@ func LogBreadcrumb(ctx context.Context, level sentry.Level, category, message st
 	if info == nil {
 		return
 	}
-
 	info.breadcrumbs = append(info.breadcrumbs, &sentry.Breadcrumb{
 		Timestamp: time.Now(),
 		Type:      "default",
@@ -44,4 +44,13 @@ func LogBreadcrumb(ctx context.Context, level sentry.Level, category, message st
 		Category:  category,
 		Level:     level,
 	})
+}
+
+// Tag adds a new tag to the Sentry instance of the context.
+func Tag(ctx context.Context, key string, value string) {
+	info := FromContext(ctx)
+	if info == nil {
+		return
+	}
+	info.tags[key] = value
 }
