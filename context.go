@@ -28,7 +28,9 @@ func FromContext(ctx context.Context) *Sentry {
 // WithContext stores a new instance of Sentry in the context and returns the
 // new generated context that you should use everywhere.
 func WithContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, keySentry, new(Sentry))
+	return context.WithValue(ctx, keySentry, &Sentry{
+		tags: make(map[string]string),
+	})
 }
 
 // LogBreadcrumb logs a new breadcrumb in the Sentry instance of the context.
