@@ -116,6 +116,7 @@ func (client *Client) sendReport(ctx context.Context, appErr error, r *http.Requ
 		info := FromContext(ctx)
 		if info != nil {
 			event.Breadcrumbs = info.breadcrumbs
+			event.Tags = info.tags
 		}
 
 		if r != nil {
