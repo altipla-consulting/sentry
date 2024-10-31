@@ -119,12 +119,15 @@ func (client *Client) sendReport(ctx context.Context, appErr error, r *http.Requ
 			event.Tags = info.tags
 		}
 
-		if r != nil {
+		val, ok := ctx.Value(keyRequest).(*http.Request)
+		if ok {
+			event.Request = sentry.NewRequest(val)
+		} else if r != nil {
 			event.Request = sentry.NewRequest(r)
 		}
 
 		eventID := client.hub.CaptureEvent(event)
-		slog.Info("Error sent to Sentry", slog.String("event-id", string(*eventID)))
+		slog.Info("Error sent to Sentry", slog.String("event-id", string(*eventID)), slog.String("error", appErr.Error()))
 	}()
 }
 
@@ -146,11 +149,14 @@ func (client *Client) sendReportPanic(ctx context.Context, appErr error, message
 			event.Breadcrumbs = info.breadcrumbs
 		}
 
-		if r != nil {
+		val, ok := ctx.Value(keyRequest).(*http.Request)
+		if ok {
+			event.Request = sentry.NewRequest(val)
+		} else if r != nil {
 			event.Request = sentry.NewRequest(r)
 		}
 
 		eventID := client.hub.CaptureEvent(event)
-		slog.Info("Error sent to Sentry", slog.String("event-id", string(*eventID)))
+		slog.Info("Error sent to Sentry", slog.String("event-id", string(*eventID)), slog.String("error", appErr.Error()))
 	}()
 }

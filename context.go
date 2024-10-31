@@ -2,6 +2,7 @@ package sentry
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/getsentry/sentry-go"
@@ -9,7 +10,10 @@ import (
 
 type key int
 
-var keySentry key = 1
+var (
+	keySentry  key = 1
+	keyRequest key = 2
+)
 
 // Sentry accumulates info through out the whole request to send them in case
 // an error is reported.
@@ -31,6 +35,16 @@ func WithContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, keySentry, &Sentry{
 		tags: make(map[string]string),
 	})
+}
+
+// WithRequest stores a new instance of Sentry in the context and returns the
+// new generated request that you should use everywhere.
+func WithRequest(r *http.Request) *http.Request {
+	ctx := r.Context()
+	ctx = WithContext(ctx)
+	ctx = context.WithValue(ctx, keyRequest, r)
+
+	return r.WithContext(ctx)
 }
 
 // LogBreadcrumb logs a new breadcrumb in the Sentry instance of the context.
