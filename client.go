@@ -80,7 +80,7 @@ func (client *Client) ReportPanic(ctx context.Context, panicErr interface{}) {
 	client.sendReportPanic(ctx, fmt.Errorf("panic: %v", panicErr), string(debug.Stack()), nil)
 }
 
-// ReportPanicsRequest detects pancis in the body of the function and reports them
+// ReportPanicsRequest detects panics in the body of the function and reports them
 // linked to a HTTP request.
 func (client *Client) ReportPanicsRequest(r *http.Request) {
 	if client == nil {
