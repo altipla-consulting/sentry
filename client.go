@@ -23,7 +23,7 @@ const (
 
 // Client wraps a Sentry connection.
 type Client struct {
-	hub *sentry.Hub
+	client *sentry.Client
 }
 
 // NewClient opens a new connection to the Sentry report API. If dsn is empty
@@ -42,7 +42,7 @@ func NewClient(dsn string) *Client {
 	}
 
 	return &Client{
-		hub: sentry.NewHub(client, sentry.NewScope()),
+		client: client,
 	}
 }
 
@@ -51,7 +51,7 @@ func (client *Client) Report(ctx context.Context, appErr error) {
 	if client == nil {
 		return
 	}
-	client.sendReport(ctx, appErr, nil)
+	client.sendReport(ctx, appErr)
 }
 
 // Deprecated: Use Report() after a previous WithRequest() call.
@@ -59,7 +59,7 @@ func (client *Client) ReportRequest(r *http.Request, appErr error) {
 	if client == nil {
 		return
 	}
-	client.sendReport(r.Context(), appErr, r)
+	client.sendReport(r.Context(), appErr)
 }
 
 // ReportPanics detects panics in the rest of the body of the function and
@@ -77,7 +77,7 @@ func (client *Client) ReportPanic(ctx context.Context, panicErr interface{}) {
 	if client == nil || panicErr == nil {
 		return
 	}
-	client.sendReportPanic(ctx, fmt.Errorf("panic: %v", panicErr), string(debug.Stack()), nil)
+	client.sendReportPanic(ctx, fmt.Errorf("panic: %v", panicErr), string(debug.Stack()))
 }
 
 // Deprecated: Use ReportPanics() after a previous WithRequest() call.
@@ -86,11 +86,11 @@ func (client *Client) ReportPanicsRequest(r *http.Request) {
 		return
 	}
 	if rec := recover(); rec != nil { // revive:disable-line:defer
-		client.sendReportPanic(r.Context(), fmt.Errorf("panic: %v", rec), string(debug.Stack()), r)
+		client.sendReportPanic(r.Context(), fmt.Errorf("panic: %v", rec), string(debug.Stack()))
 	}
 }
 
-func (client *Client) sendReport(ctx context.Context, appErr error, r *http.Request) {
+func (client *Client) sendReport(ctx context.Context, appErr error) {
 	go func() {
 		event := sentry.NewEvent()
 		event.Level = sentry.LevelError
@@ -112,25 +112,17 @@ func (client *Client) sendReport(ctx context.Context, appErr error, r *http.Requ
 			},
 		}
 
-		info := FromContext(ctx)
-		if info != nil {
-			event.Breadcrumbs = info.breadcrumbs
-			event.Tags = info.tags
+		scope := scopeFromContext(ctx)
+		if scope == nil {
+			scope = sentry.NewScope()
 		}
 
-		val, ok := ctx.Value(keyRequest).(*http.Request)
-		if ok {
-			event.Request = sentry.NewRequest(val)
-		} else if r != nil {
-			event.Request = sentry.NewRequest(r)
-		}
-
-		eventID := client.hub.CaptureEvent(event)
+		eventID := sentry.NewHub(client.client, scope).CaptureEvent(event)
 		slog.Info("Error sent to Sentry", slog.String("event-id", string(*eventID)), slog.String("error", appErr.Error()))
 	}()
 }
 
-func (client *Client) sendReportPanic(ctx context.Context, appErr error, message string, r *http.Request) {
+func (client *Client) sendReportPanic(ctx context.Context, appErr error, message string) {
 	go func() {
 		event := sentry.NewEvent()
 		event.Level = sentry.LevelFatal
@@ -143,19 +135,12 @@ func (client *Client) sendReportPanic(ctx context.Context, appErr error, message
 			},
 		}
 
-		info := FromContext(ctx)
-		if info != nil {
-			event.Breadcrumbs = info.breadcrumbs
+		scope := scopeFromContext(ctx)
+		if scope == nil {
+			scope = sentry.NewScope()
 		}
 
-		val, ok := ctx.Value(keyRequest).(*http.Request)
-		if ok {
-			event.Request = sentry.NewRequest(val)
-		} else if r != nil {
-			event.Request = sentry.NewRequest(r)
-		}
-
-		eventID := client.hub.CaptureEvent(event)
+		eventID := sentry.NewHub(client.client, scope).CaptureEvent(event)
 		slog.Info("Error sent to Sentry", slog.String("event-id", string(*eventID)), slog.String("error", appErr.Error()))
 	}()
 }

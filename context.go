@@ -11,62 +11,49 @@ import (
 type key int
 
 var (
-	keySentry  key = 1
-	keyRequest key = 2
+	keySentry key = 1
 )
 
-// Sentry accumulates info through out the whole request to send them in case
-// an error is reported.
-type Sentry struct {
-	breadcrumbs []*sentry.Breadcrumb
-	tags        map[string]string
-}
-
-// FromContext returns the Sentry instance stored in the context. If no instance
-// was created it will return nil.
-func FromContext(ctx context.Context) *Sentry {
-	value, _ := ctx.Value(keySentry).(*Sentry)
+func scopeFromContext(ctx context.Context) *sentry.Scope {
+	value, _ := ctx.Value(keySentry).(*sentry.Scope)
 	return value
 }
 
 // WithContext stores a new instance of Sentry in the context and returns the
 // new generated context that you should use everywhere.
 func WithContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, keySentry, &Sentry{
-		tags: make(map[string]string),
-	})
+	return context.WithValue(ctx, keySentry, sentry.NewScope())
 }
 
 // WithRequest stores a new instance of Sentry in the context and returns the
 // new generated request that you should use everywhere.
 func WithRequest(r *http.Request) *http.Request {
-	ctx := r.Context()
-	ctx = WithContext(ctx)
-	ctx = context.WithValue(ctx, keyRequest, r)
-
+	ctx := WithContext(r.Context())
+	scope := scopeFromContext(ctx)
+	scope.SetRequest(r)
 	return r.WithContext(ctx)
 }
 
 // LogBreadcrumb logs a new breadcrumb in the Sentry instance of the context.
 func LogBreadcrumb(ctx context.Context, level sentry.Level, category, message string) {
-	info := FromContext(ctx)
-	if info == nil {
+	scope := scopeFromContext(ctx)
+	if scope == nil {
 		return
 	}
-	info.breadcrumbs = append(info.breadcrumbs, &sentry.Breadcrumb{
+	scope.AddBreadcrumb(&sentry.Breadcrumb{
 		Timestamp: time.Now(),
 		Type:      "default",
 		Message:   message,
 		Category:  category,
 		Level:     level,
-	})
+	}, 500)
 }
 
 // Tag adds a new tag to the Sentry instance of the context.
 func Tag(ctx context.Context, key string, value string) {
-	info := FromContext(ctx)
-	if info == nil {
+	scope := scopeFromContext(ctx)
+	if scope == nil {
 		return
 	}
-	info.tags[key] = value
+	scope.SetTag(key, value)
 }
