@@ -34,8 +34,9 @@ func NewClient(dsn string) *Client {
 	}
 
 	client, err := sentry.NewClient(sentry.ClientOptions{
-		Dsn:     dsn,
-		Release: os.Getenv("VERSION"),
+		Dsn:            dsn,
+		Release:        os.Getenv("VERSION"),
+		SendDefaultPII: true,
 	})
 	if err != nil {
 		panic(err)
