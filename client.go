@@ -9,6 +9,8 @@ import (
 	"os"
 	"reflect"
 	"runtime/debug"
+	"sync"
+	"time"
 
 	"github.com/getsentry/sentry-go"
 )
@@ -24,6 +26,7 @@ const (
 // Client wraps a Sentry connection.
 type Client struct {
 	client *sentry.Client
+	wg     sync.WaitGroup
 }
 
 // NewClient opens a new connection to the Sentry report API. If dsn is empty
@@ -44,6 +47,24 @@ func NewClient(dsn string) *Client {
 
 	return &Client{
 		client: client,
+	}
+}
+
+// Flush waits until the underlying Transport sends any buffered events.
+func (client *Client) Flush(timeout time.Duration) {
+	start := time.Now()
+
+	ch := make(chan struct{})
+	go func() {
+		client.wg.Wait()
+		close(ch)
+	}()
+	select {
+	case <-ch:
+		client.client.Flush(timeout - time.Since(start))
+		return
+	case <-time.After(timeout):
+		return
 	}
 }
 
@@ -92,7 +113,10 @@ func (client *Client) ReportPanicsRequest(r *http.Request) {
 }
 
 func (client *Client) sendReport(ctx context.Context, appErr error) {
+	client.wg.Add(1)
 	go func() {
+		defer client.wg.Done()
+
 		event := sentry.NewEvent()
 		event.Level = sentry.LevelError
 		event.Message = appErr.Error()

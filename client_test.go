@@ -15,9 +15,9 @@ func TestReportError(t *testing.T) {
 	if os.Getenv("SENTRY_DSN") == "" {
 		t.Skip("Skipping sentry real tests without SENTRY_DSN=foo env variable")
 	}
-	defer time.Sleep(3 * time.Second)
 
 	client := sentry.NewClient(os.Getenv("SENTRY_DSN"))
+	defer client.Flush(5 * time.Second)
 
 	client.Report(context.Background(), foo("foo error"))
 	client.Report(context.Background(), foo("bar error"))
@@ -48,9 +48,9 @@ func TestReportPanic(t *testing.T) {
 	if os.Getenv("SENTRY_DSN") == "" {
 		t.Skip("Skipping sentry real tests without SENTRY_DSN=foo env variable")
 	}
-	defer time.Sleep(3 * time.Second)
 
 	client := sentry.NewClient(os.Getenv("SENTRY_DSN"))
+	defer client.Flush(5 * time.Second)
 	defer client.ReportPanics(context.Background())
 
 	panic("foo")
@@ -60,9 +60,9 @@ func TestIgnoreAbortError(t *testing.T) {
 	if os.Getenv("SENTRY_DSN") == "" {
 		t.Skip("Skipping sentry real tests without SENTRY_DSN=foo env variable")
 	}
-	defer time.Sleep(3 * time.Second)
 
 	client := sentry.NewClient(os.Getenv("SENTRY_DSN"))
+	defer client.Flush(5 * time.Second)
 	defer client.ReportPanics(context.Background())
 
 	panic(http.ErrAbortHandler)
@@ -72,9 +72,9 @@ func TestReportStackTrace(t *testing.T) {
 	if os.Getenv("SENTRY_DSN") == "" {
 		t.Skip("Skipping sentry real tests without SENTRY_DSN=foo env variable")
 	}
-	defer time.Sleep(3 * time.Second)
 
 	client := sentry.NewClient(os.Getenv("SENTRY_DSN"))
+	defer client.Flush(5 * time.Second)
 
 	client.Report(context.Background(), fmt.Errorf("wrapper1: %w", wrapper1()))
 }
